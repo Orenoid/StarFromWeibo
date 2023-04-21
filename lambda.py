@@ -50,31 +50,54 @@ def star(owner: str, repo: str, token: str):
     resp.raise_for_status()
 
 
-def get_long_text(id: str) -> str:
-    url = 'https://weibo.com/ajax/statuses/longtext'
-    params = {'id': id}
-    resp = requests.get(url, params=params)
+def get_long_text(mblogid: str, cookie: str) -> str:
+    url = "https://weibo.com/ajax/statuses/longtext"
+    params = {'id': mblogid}
+    headers = {
+        'authority': 'weibo.com',
+        'accept': 'application/json, text/plain, */*',
+        'accept-language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7,ja;q=0.6,zh-TW;q=0.5',
+        'client-version': 'v2.40.37',
+        'cookie': cookie,
+        'dnt': '1',
+        'sec-ch-ua': '"Chromium";v="112", "Google Chrome";v="112", "Not:A-Brand";v="99"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"macOS"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
+        'server-version': 'v2023.04.21.1',
+        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36',
+        'x-requested-with': 'XMLHttpRequest'
+    }
+
+    resp = requests.request("GET", url, headers=headers, params=params)
     resp.raise_for_status()
-    return resp.json()['data']
+    resp_json = resp.json()
+    return resp_json['data']['longTextContent']
 
 
 def lambda_handler(event, context):
     print("Received event: " + json.dumps(event, indent=2))
+
     request_raw: str = event['body']
     request_json: dict = json.loads(request_raw)
     value_raw = request_json.get('value')
-    # value_json: dict = json.loads(value_raw)
-
-    # if value_json.get('isLongText'):
-    #     mblogid = value_json.get('mblogid')
-    #     todo 获取需要展开的长文微博内容
+    value_json: dict = json.loads(value_raw)
 
     message: str = 'no repo to star'
     if value_raw is not None:
-        owner, repo = parse_text_to_repo_name(value_raw, FORWARD_KEY)
+        text_raw = value_json.get('text_raw')
+        if value_json.get('isLongText'):
+            mblogid = value_json.get('mblogid')
+            text_raw = get_long_text(mblogid, value_json.get('cookie'))
+
+        owner, repo = parse_text_to_repo_name(text_raw, FORWARD_KEY)
         if owner != '' and repo != '':
             star(owner, repo, GITHUB_TOKEN)
             message = f'starred repo: {owner}/{repo}'
+
+            # todo 取消收藏微博
 
     print(message)
     payload = {
