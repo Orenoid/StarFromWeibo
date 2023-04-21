@@ -1,5 +1,6 @@
 import json
 import os
+import re
 
 import requests
 
@@ -23,6 +24,7 @@ def parse_text_to_repo_name(body: str, forward_key: str) -> (str, str):
     url = 'https://openai.api2d.net/v1/chat/completions'
     payload = {
         'model': 'gpt-3.5-turbo',
+        'temperature': 0.2,
         'messages': [
             {"role": "system", "content": "尝试从用户发送给你的文本里找出GitHub Repo名字，并以{owner}/{repo}的形式回复用户，"
                                           "若文本与GitHub无关，则回复null，绝对不要返回多余内容"},
@@ -35,7 +37,15 @@ def parse_text_to_repo_name(body: str, forward_key: str) -> (str, str):
     content = resp.json()['choices'][0]['message']['content']
     if content == 'null':
         return '', ''
-    return content.split('/')
+    splits = content.split('/')
+    if len(splits) == 2:
+        return splits[0], splits[1]
+    pattern = r"(https?://)?github\.com/([\w-]+)/([\w-]+)"
+    match = re.match(pattern, content)
+    if match:
+        return match.group(2), match.group(3)
+    else:
+        raise Exception(f'invalid content: {content}')
 
 
 def star(owner: str, repo: str, token: str):
