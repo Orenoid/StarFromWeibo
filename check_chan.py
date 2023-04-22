@@ -33,6 +33,7 @@ result = {
     'text_raw': first_post['text_raw'],
     'isLongText': first_post['isLongText'],
     'mblogid': first_post['mblogid'],
+    'id': first_post['id'],
     'cookie': os.environ.get('COOKIE')
 }
 

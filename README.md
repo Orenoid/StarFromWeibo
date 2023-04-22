@@ -4,7 +4,3 @@
 
 Weibo -> CheckChan -> AWS Lambda + ChatGPT -> GitHub API
 
-## TODO
-- 自动取消收藏微博
-- lambda 接口鉴权
-- 错误处理

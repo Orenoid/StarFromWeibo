@@ -1,6 +1,7 @@
 import json
 import os
 import re
+from http.cookies import SimpleCookie
 
 import requests
 
@@ -24,7 +25,6 @@ def parse_text_to_repo_name(body: str, forward_key: str) -> (str, str):
     url = 'https://openai.api2d.net/v1/chat/completions'
     payload = {
         'model': 'gpt-3.5-turbo',
-        'temperature': 0.2,
         'messages': [
             {"role": "system", "content": "尝试从用户发送给你的文本里找出GitHub Repo名字，并以{owner}/{repo}的形式回复用户，"
                                           "若文本与GitHub无关，则回复null，绝对不要返回多余内容"},
@@ -93,6 +93,7 @@ def lambda_handler(event, context):
     request_raw: str = event['body']
     request_json: dict = json.loads(request_raw)
     value_raw = request_json.get('value')
+    print(value_raw)
     value_json: dict = json.loads(value_raw)
 
     message: str = 'no repo to star'
@@ -106,8 +107,7 @@ def lambda_handler(event, context):
         if owner != '' and repo != '':
             star(owner, repo, GITHUB_TOKEN)
             message = f'starred repo: {owner}/{repo}'
-
-            # todo 取消收藏微博
+            destroy_fav(value_json.get('id'), value_json.get('cookie'))
 
     print(message)
     payload = {
@@ -115,3 +115,35 @@ def lambda_handler(event, context):
         'message': message
     }
     return respond(None, payload)
+
+
+def destroy_fav(wb_id: int, cookie: str):
+    url = "https://weibo.com/ajax/statuses/destoryFavorites"
+
+    simple_cookie = SimpleCookie()
+    simple_cookie.load(cookie)
+    xsrf_token = simple_cookie['XSRF-TOKEN'].value
+
+    payload = {'id': str(wb_id)}
+    headers = {
+        'authority': 'weibo.com',
+        'accept': 'application/json, text/plain, */*',
+        'accept-language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7,ja;q=0.6,zh-TW;q=0.5',
+        'content-type': 'application/json;charset=UTF-8',
+        'cookie': cookie,
+        'dnt': '1',
+        'origin': 'https://weibo.com',
+        'sec-ch-ua': '"Chromium";v="112", "Google Chrome";v="112", "Not:A-Brand";v="99"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"macOS"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
+        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36',
+        'x-requested-with': 'XMLHttpRequest',
+        'x-xsrf-token': xsrf_token,
+    }
+
+    resp = requests.request("POST", url, headers=headers, json=payload)
+    print(resp.text)
+    resp.raise_for_status()
